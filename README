@@ -1,0 +1,24 @@
+# Air Quality Checker
+
+## How to
+
+Create `src/secrets.h` and replace placeholders:
+
+```c
+#ifndef SECRETS_H
+#define SECRETS_H
+
+#define WIFI_SSID "<<YourWiFiSSID>>"
+#define WIFI_PASSWORD "<<YourWiFiPassword>>"
+#define SERVER_URL "<<http://dein-server.com/upload>>"
+
+#endif // SECRETS_H
+```
+
+
+## BME688
+
+https://learn.adafruit.com/adafruit-bme680-humidity-temperature-barometic-pressure-voc-gas/overview
+
+SCK breakout pin to the I2C clock SCL pin on your Arduino compatible (yellow wire on STEMMA QT version)
+SDI breakout pin to the I2C data SDA pin on your Arduino compatible (blue wire on STEMMA QT version)
