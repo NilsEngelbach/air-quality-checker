@@ -2,23 +2,74 @@
 
 ## How to
 
-Create `src/secrets.h` and replace placeholders:
+- Install Platform IDE Extension
+- Install USB Driver
+  - See: https://learn.adafruit.com/adafruit-feather-huzzah-esp8266/using-arduino-ide
+- Create `src/secrets.h` and replace placeholders:
 
-```c
-#ifndef SECRETS_H
-#define SECRETS_H
+    ```c
+    #ifndef SECRETS_H
+    #define SECRETS_H
 
-#define WIFI_SSID "<<YourWiFiSSID>>"
-#define WIFI_PASSWORD "<<YourWiFiPassword>>"
-#define SERVER_URL "<<http://dein-server.com/upload>>"
+    #define WIFI_SSID "<<YourWiFiSSID>>"
+    #define WIFI_PASSWORD "<<YourWiFiPassword>>"
+    #define SERVER_URL "<<http://dein-server.com/upload>>"
 
-#endif // SECRETS_H
-```
+    #endif // SECRETS_H
+    ```
 
 
-## BME688
+
+### How to connect the electronics?
+
+- [Setup 1](./doc/setup-1.jpg)
+
+## Components
+
+### Assembled Feather HUZZAH w/ ESP8266 WiFi With Stacking Headers
+
+https://www.adafruit.com/product/3213
+
+- [Pinout](./doc/adafruit_products_Huzzah_ESP8266_Pinout_v1.2-1.png)
+
+#### Spec
+
+- Measures 2.0" x 0.9" x 0.28" (51mm x 23mm x 8mm) without headers soldered in
+- Light as a (large?) feather - 6 grams
+- ESP8266 @ 80MHz or 160 MHz with 3.3V logic/power
+- 4MB of FLASH (32 MBit)
+- 3.3V regulator with 500mA peak current output
+- CP2104 USB-Serial converter onboard with 921600 max baudrate for uploading
+- Auto-reset support for getting into bootload mode before firmware upload
+- 9 GPIO pins - can also be used as I2C and SPI
+- 1 x analog inputs 1.0V max
+- Built in 100mA lipoly charger with charging status indicator LED
+- Pin #0 red LED for general purpose blinking. Pin #2 blue LED for bootloading debug & general purpose blinking
+- Power/enable pin
+- 4 mounting holes
+- Reset button
+
+### BME688
 
 https://learn.adafruit.com/adafruit-bme680-humidity-temperature-barometic-pressure-voc-gas/overview
 
 SCK breakout pin to the I2C clock SCL pin on your Arduino compatible (yellow wire on STEMMA QT version)
 SDI breakout pin to the I2C data SDA pin on your Arduino compatible (blue wire on STEMMA QT version)
+
+- Connect via `STEMMA QT` with the Feather (see [STEMMA](#stemma-qt-cables-stemma))
+
+### Servo SG92R
+
+https://towerpro.com.tw/product/sg92r-7/
+
+## Knowledge
+
+### Adafruit STEMMA & STEMMA QT (I2C)
+
+- Technical Specs: https://learn.adafruit.com/introducing-adafruit-stemma-qt/technical-specs
+
+#### STEMMA QT cables
+- Black for **GND**
+- Red for **V+**
+- Blue for **SDA**
+- Yellow for **SCL**
