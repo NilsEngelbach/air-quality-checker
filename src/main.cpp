@@ -72,8 +72,8 @@ void setup()
     delay(10); // wait for console to see every log- only for development
 #endif
 
-  pinMode(LED_BUILTIN, OUTPUT); // configure LED at 0 (RED) for output usage
-  digitalWrite(LED_BUILTIN, HIGH);
+  pinMode(LED_BUILTIN, OUTPUT);    // configure LED at 0 (RED) for output usage
+  digitalWrite(LED_BUILTIN, HIGH); // the 0 LED is inverted, so per default red to start in error mode if something goes wrong
 
   LOG("Starting...");
 
