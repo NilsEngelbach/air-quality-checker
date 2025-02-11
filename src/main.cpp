@@ -27,7 +27,7 @@ const uint8_t bsec_config_iaq[] = {
 #include <sys/time.h>
 
 // Constants
-#define DEV_MODE // uncomment this for debug / dev to have serial + logs
+#define DEV_MODE // use this for debug / dev to have serial + logs
 
 // Macros
 #ifdef DEV_MODE
@@ -40,6 +40,7 @@ const uint8_t bsec_config_iaq[] = {
 bool CheckAndGetSensorStatus(void);
 int64_t GetTimestamp();
 void EnterErrorLEDStateForever(void);
+void blink_led(int on_duration_ms, int sleep_ms);
 
 // Global variables
 Bsec airSensor;
@@ -69,7 +70,9 @@ void setup()
   Serial.begin(115200);
 
   while (!Serial)
-    delay(10); // wait for console to see every log- only for development
+  {
+  }
+
 #endif
 
   pinMode(LED_BUILTIN, OUTPUT);    // configure LED at 0 (RED) for output usage
@@ -191,9 +194,14 @@ void EnterErrorLEDStateForever(void)
   LOG("Enter Blink Error LED forever");
   while (true)
   {
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(250);
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(1000);
+    blink_led(250, 1000);
   }
+}
+
+void blink_led(int on_duration_ms, int sleep_ms)
+{
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(on_duration_ms);
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(sleep_ms);
 }

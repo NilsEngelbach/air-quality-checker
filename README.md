@@ -35,7 +35,7 @@
 ## Thoughts / Discussions / TODOs
 
 - There are sensors that already have some calculation capabilities - is this a benefit?
-  > The BME680 doesn't have built-in air quality calcualtion capabilities like other sensors like the SGP30 or CCS811. Instead, you only get temperature, pressure, humidity and gas resistance (the raw resistance value of the sensor in the BME60. So we have to use a separate library from Bosch to perform the conversion to get Air Quality values like the VOC and equivalent CO2.
+  > The BME688 doesn't have built-in air quality calcualtion capabilities like other sensors like the SGP30 or CCS811. Instead, you only get temperature, pressure, humidity and gas resistance (the raw resistance value of the sensor in the BME60. So we have to use a separate library from Bosch to perform the conversion to get Air Quality values like the VOC and equivalent CO2.
   - https://learn.adafruit.com/adafruit-bme680-humidity-temperature-barometic-pressure-voc-gas/bsec-air-quality-library
 - Next Project: Weather station
   - https://learn.adafruit.com/wifi-weather-station-with-tft-display
@@ -65,16 +65,22 @@
 - 4 mounting holes
 - Reset button
 
-#### ESP8266
+#### ESP8266 (12-f)
 
 - Data-Sheet: https://cdn-shop.adafruit.com/datasheets/ESP8266_Specifications_English.pdf
 - Arduino ESP8266 Core Documentation: https://arduino-esp8266.readthedocs.io/en/latest/
+- 4 MB flash version
 
-### Adafruit BME680
+### Adafruit BME688
 
-- Board: https://learn.adafruit.com/adafruit-bme680-humidity-temperature-barometic-pressure-voc-gas/overview
+- Board: https://www.adafruit.com/product/5046
+  - Adafruit usage example (688 is a drop-in replacement for 680): https://learn.adafruit.com/adafruit-bme680-humidity-temperature-barometic-pressure-voc-gas/
+- 680 vs 688
+  - https://community.bosch-sensortec.com/mems-sensors-forum-jrmujtaw/post/bme688-and-bme680-difference-vOD2OeR2AhrgdMT
+  - > It is true that BME680 and BME688 are the same based on MOX technology. The only difference is the gas output resistance range in the ubnit of Ohm. BME680 has typical resistance range that can be used for measuring indoor air quality (IAQ), total VOC and equivalent CO2 concentration in the unit of ppm.
+    >BME688 has larger output resistance range that can be trained to detect specific gas. Different gases such as coffee, cheese, alcohol, etc. has different output resistance pattern under certain heating profile inside BME688. By using AI Studio SW available on website users can generate model for specific gas. This is so called "a gas scanner function". Please see the video clip at https://www.youtube.com/watch?v=LbDWbdlbD8Q for more information.
 - Original Bosch Library: https://github.com/BoschSensortec/BSEC-Arduino-library
-- BME680 Data-Sheet: https://cdn-shop.adafruit.com/product-files/3660/BME680.pdf
+- BME688 Data-Sheet: https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme688-ds000.pdf
   - measure humidity with ±3% accuracy
   - barometric pressure with ±1 hPa absolute accuracy
     - can be used to calculate the altimeter ±1 meter or better accuracy
@@ -85,7 +91,7 @@
   - SDI breakout pin to the I2C data SDA pin on your Arduino compatible (blue wire on STEMMA QT version)
 
 - What configuration we like to run the sensor?
-  - What power mode? (Page 21 DataSheet)
+  - What power mode? (Page 30 DataSheet)
     - => "Ultra low power (ULP) mode that is designed for battery-powered and/or frequency-coupled devices over extended 
 periods of time. This mode features an update rate of 300 seconds and an average current consumption of <0.1 mA"
 
