@@ -10,7 +10,8 @@
         "initializer_list": "cpp",
         "ranges": "cpp",
         "ostream": "cpp",
-        "*.txt": "cpp"
+        "*.txt": "cpp",
+        "random": "cpp"
     },
     "editor.formatOnSave": true
 }
