@@ -7,7 +7,11 @@ BirdyServo::BirdyServo(uint8_t pin)
 
 void BirdyServo::initialize()
 {
-    servo.attach(pin);
+    servo.attach(pin, 500, 2500);
+    servo.write(0);
+    delay(1000);
+    servo.write(180);
+    delay(1000);
     servo.write(0);
 }
 
