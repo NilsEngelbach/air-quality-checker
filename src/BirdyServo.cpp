@@ -13,9 +13,23 @@ void BirdyServo::initialize()
 
 void BirdyServo::updatePosition(float iaqValue)
 {
-    // IAQ ranges from 0 (excellent) to 500 (hazardous)
-    // Map to servo angles: 0° (excellent) to 180° (hazardous)
-    int angle = map(iaqValue, 0, 500, 0, 180);
-    Serial.printf("Moving to: %d°\n", angle);
-    servo.write(angle);
+    // IAQ 0-50 excellent, 51-100 good
+    if (iaqValue < 101)
+    {
+        servo.write(0);
+        Serial.printf("Good: Moving to: %d°\n", 0);
+    }
+    // 101-150 moderate
+    else if (iaqValue < 151)
+    {
+        int angle = map(iaqValue, 101, 150, 0, 135) + 45;
+        servo.write(angle);
+        Serial.printf("Moderate: Moving to: %d°\n", angle);
+    }
+    // > 151 poor
+    else
+    {
+        servo.write(180);
+        Serial.printf("Bad: Moving to: %d°\n", 180);
+    }
 }
