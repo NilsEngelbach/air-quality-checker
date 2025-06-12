@@ -6,12 +6,14 @@
 class BirdyAPI
 {
 public:
-    BirdyAPI(const char *apiUrl);
+    BirdyAPI(const char *ssid, const char *password, const char *apiUrl);
     void initialize();
     bool persistData(const BirdyData &data);
 
 private:
     const char *apiUrl;
+    const char *ssid;
+    const char *password;
     HTTPClient http;
     WiFiClient client;
 };

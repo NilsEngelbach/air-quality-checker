@@ -21,6 +21,7 @@
 
     #define WIFI_SSID "<<YourWiFiSSID>>"
     #define WIFI_PASSWORD "<<YourWiFiPassword>>"
+    #define API_URL "<<YourAPI>>"
 
     #endif // SECRETS_H
     ```

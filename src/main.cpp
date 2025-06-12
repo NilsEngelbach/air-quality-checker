@@ -1,12 +1,13 @@
 #include <Wire.h>
 #include <EEPROM.h>
+#include "secrets.h"
 #include "BirdyData.h"
 #include "BirdyAPI.h"
 #include "BirdyServo.h"
 #include "BirdySensor.h"
 
 // API
-BirdyAPI birdyAPI("http://localhost:3000/api/v1/sensors");
+BirdyAPI birdyAPI(WIFI_SSID, WIFI_PASSWORD, API_URL);
 
 // Servo
 #define SERVO_PIN 13

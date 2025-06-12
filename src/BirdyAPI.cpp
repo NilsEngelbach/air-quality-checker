@@ -1,14 +1,12 @@
 #include "BirdyAPI.h"
-#include "secrets.h"
 
-BirdyAPI::BirdyAPI(const char *apiUrl) : apiUrl(apiUrl)
+BirdyAPI::BirdyAPI(const char *ssid, const char *password, const char *apiUrl) : ssid(ssid), password(password), apiUrl(apiUrl)
 {
 }
 
 void BirdyAPI::initialize()
 {
-    // Setup WiFi connection with SSID and password from secrets.h
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(1000);
