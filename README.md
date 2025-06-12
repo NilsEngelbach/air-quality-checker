@@ -21,7 +21,6 @@
 
     #define WIFI_SSID "<<YourWiFiSSID>>"
     #define WIFI_PASSWORD "<<YourWiFiPassword>>"
-    #define SERVER_URL "<<http://dein-server.com/upload>>"
 
     #endif // SECRETS_H
     ```
