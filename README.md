@@ -16,14 +16,14 @@
 - Create `src/secrets.h` and replace placeholders:
 
     ```c
-    #ifndef SECRETS_H
-    #define SECRETS_H
+    #pragma once
 
     #define WIFI_SSID "<<YourWiFiSSID>>"
     #define WIFI_PASSWORD "<<YourWiFiPassword>>"
-    #define API_URL "<<YourAPI>>"
 
-    #endif // SECRETS_H
+    #define BIRDY_ID "<<YourBirdyUUID>>"
+    #define API_KEY "<<YourApiKey>>"
+    #define API_URL "<<YourApiUrl>>"
     ```
 
 

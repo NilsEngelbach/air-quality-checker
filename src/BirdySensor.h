@@ -1,10 +1,11 @@
+#pragma once
+
 #include <Wire.h>
 #include <bsec2.h>
 #include <EEPROM.h>
 #include "BirdyData.h"
 
-// State management
-#define STATE_SAVE_INTERVAL (5 * 60 * 1000) // 5 minutes
+#define STATE_SAVE_INTERVAL (5 * 60 * 1000) // Persist state every 5 minutes
 
 using SensorCallback = void (*)(const BirdyData &);
 

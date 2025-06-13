@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include "BirdyData.h"
 
+#define BLINK_INTERVAL 500
+
 class BirdyLED
 {
 public:
@@ -16,5 +18,4 @@ private:
     unsigned long lastBlinkTime;
     bool ledState;
     uint8_t accuracy;
-    static const unsigned long BLINK_INTERVAL = 500; // Blink every 500ms
 };

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <ArduinoJson.h>
-
 // Accuracy levels
 #define BSEC_ACCURACY_UNRELIABLE 0
 #define BSEC_ACCURACY_LOW 1

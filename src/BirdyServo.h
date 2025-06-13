@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Servo.h>
 
 class BirdyServo

@@ -36,13 +36,13 @@ void BirdySensor::initialize()
     }
 
     Serial.println("\n\t[2/5] Set configuration");
-    if (!sensor.setConfig(bsecConfig))
+    if (!sensor.setConfig(this->bsecConfig))
     {
         checkStatus();
     }
 
     Serial.println("\n\t[3/5] Load state");
-    if (!loadState())
+    if (!this->loadState())
     {
         checkStatus();
     }
@@ -56,18 +56,18 @@ void BirdySensor::initialize()
         BSEC_OUTPUT_RAW_HUMIDITY};
 
     Serial.println("\n\t[4/5] Update subscription");
-    if (!sensor.updateSubscription(sensorList, 6, BSEC_SAMPLE_RATE_LP))
+    if (!this->sensor.updateSubscription(sensorList, 6, BSEC_SAMPLE_RATE_LP))
     {
         checkStatus();
     }
 
     Serial.println("\n\t[5/5] Attach callback");
-    sensor.attachCallback(internalCallback);
+    this->sensor.attachCallback(this->internalCallback);
 }
 
 void BirdySensor::update()
 {
-    if (!sensor.run())
+    if (!this->sensor.run())
     {
         checkStatus();
     }
@@ -144,22 +144,22 @@ const char *BirdySensor::getAccuracyString(uint8_t accuracy)
 
 void BirdySensor::checkStatus()
 {
-    if (sensor.status < BSEC_OK)
+    if (this->sensor.status < BSEC_OK)
     {
-        Serial.println("BSEC error code : " + String(sensor.status));
+        Serial.println("BSEC error code : " + String(this->sensor.status));
     }
-    else if (sensor.status > BSEC_OK)
+    else if (this->sensor.status > BSEC_OK)
     {
-        Serial.println("BSEC warning code : " + String(sensor.status));
+        Serial.println("BSEC warning code : " + String(this->sensor.status));
     }
 
-    if (sensor.sensor.status < BME68X_OK)
+    if (this->sensor.sensor.status < BME68X_OK)
     {
-        Serial.println("BME68X error code : " + String(sensor.sensor.status));
+        Serial.println("BME68X error code : " + String(this->sensor.sensor.status));
     }
-    else if (sensor.sensor.status > BME68X_OK)
+    else if (this->sensor.sensor.status > BME68X_OK)
     {
-        Serial.println("BME68X warning code : " + String(sensor.sensor.status));
+        Serial.println("BME68X warning code : " + String(this->sensor.sensor.status));
     }
 }
 
@@ -181,12 +181,12 @@ bool BirdySensor::loadState()
     }
     Serial.println();
 
-    return sensor.setState(bsecState);
+    return this->sensor.setState(this->bsecState);
 }
 
 bool BirdySensor::saveState()
 {
-    if (!sensor.getState(bsecState))
+    if (!this->sensor.getState(this->bsecState))
         return false;
 
     Serial.println("Writing state to EEPROM");
@@ -194,8 +194,8 @@ bool BirdySensor::saveState()
 
     for (uint8_t i = 0; i < BSEC_MAX_STATE_BLOB_SIZE; i++)
     {
-        EEPROM.write(i + 1, bsecState[i]);
-        Serial.print(String(bsecState[i], HEX) + ", ");
+        EEPROM.write(i + 1, this->bsecState[i]);
+        Serial.print(String(this->bsecState[i], HEX) + ", ");
     }
     Serial.println();
 
@@ -206,13 +206,13 @@ bool BirdySensor::saveState()
 
 void BirdySensor::persistState(bsecData output)
 {
-    if (output.accuracy > lastAccuracy || (millis() - lastStateSave >= STATE_SAVE_INTERVAL))
+    if (output.accuracy > this->lastAccuracy || (millis() - this->lastStateSave >= STATE_SAVE_INTERVAL))
     {
         if (saveState())
         {
-            Serial.println("State saved due to " + String(output.accuracy > lastAccuracy ? "improved accuracy" : "time interval"));
-            lastAccuracy = output.accuracy;
-            lastStateSave = millis();
+            Serial.println("State saved due to " + String(output.accuracy > this->lastAccuracy ? "improved accuracy" : "time interval"));
+            this->lastAccuracy = output.accuracy;
+            this->lastStateSave = millis();
         }
     }
 }
