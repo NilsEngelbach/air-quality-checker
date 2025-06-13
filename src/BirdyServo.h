@@ -5,7 +5,7 @@ class BirdyServo
 public:
     BirdyServo(uint8_t pin);
     void initialize();
-    void updatePosition(float iaqValue);
+    void setIaq(float iaqValue);
 
 private:
     Servo servo;

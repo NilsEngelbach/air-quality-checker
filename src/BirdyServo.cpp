@@ -15,7 +15,7 @@ void BirdyServo::initialize()
     servo.write(0);
 }
 
-void BirdyServo::updatePosition(float iaqValue)
+void BirdyServo::setIaq(float iaqValue)
 {
     // IAQ 0-50 excellent, 51-100 good
     if (iaqValue < 101)
