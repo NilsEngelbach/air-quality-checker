@@ -16,6 +16,11 @@ void BirdyLED::setAccuracy(uint8_t accuracy)
     this->accuracy = accuracy;
 }
 
+void BirdyLED::off()
+{
+    digitalWrite(pin, HIGH); // active-LOW on Huzzah built-in LED
+}
+
 void BirdyLED::update()
 {
     // If accuracy is LOW or better, keep LED on

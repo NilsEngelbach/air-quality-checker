@@ -12,6 +12,7 @@ public:
     void initialize();
     void update();
     void setAccuracy(uint8_t accuracy);
+    void off();
 
 private:
     uint8_t pin;

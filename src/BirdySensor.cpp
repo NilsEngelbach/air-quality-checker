@@ -1,50 +1,66 @@
 #include "BirdySensor.h"
 
-static const uint8_t config[] = {
-#include "config/bme688/bme688_sel_33v_3s_4d/bsec_selectivity.txt"
+// ULP config (300 s) is required for deep-sleep duty cycling. LP (3 s) is
+// incompatible because BSEC anchors its gas-resistance baseline around a
+// continuous 3 s heater cadence — after 290 s of sleep the heater is cold,
+// the baseline has drifted, and BSEC resets accuracy to 0 every wake.
+// ULP explicitly models the ~300 s gap; accuracy survives sleep with state restore.
+static const uint8_t bsecConfig[] = {
+#include "config/bme688/bme688_sel_33v_300s_4d/bsec_selectivity.txt"
 };
 
 BirdySensor *BirdySensor::instance = nullptr;
 
-BirdySensor::BirdySensor(SensorCallback userCallback) : sensor(),
-                                                        bsecState{},
-                                                        bsecConfig(config),
-                                                        lastAccuracy(0),
-                                                        lastStateSave(0),
-                                                        userCallback(userCallback)
+BirdySensor::BirdySensor(SensorCallback userCallback)
+    : sensor(), userCallback(userCallback)
 {
     instance = this;
 }
 
-void BirdySensor::initialize()
+void BirdySensor::initialize(const uint8_t *savedState)
 {
-    Serial.println("\n\t[1/5] Starting communication with Sensor");
+    Serial.println("[Sensor] init");
 
     Wire.beginTransmission(BME68X_I2C_ADDR_HIGH);
-    byte error = Wire.endTransmission();
-    if (error != 0)
+    if (Wire.endTransmission() != 0)
     {
-        Serial.println("\t\tError: Could not find sensor!");
-        Serial.println("\t\tError code: " + String(error));
+        Serial.println("[Sensor] ERROR: not found on I2C 0x77");
         return;
     }
 
-    Serial.println("\t\tSensor found!");
     if (!sensor.begin(BME68X_I2C_ADDR_HIGH, Wire))
     {
         checkStatus();
+        return;
     }
 
-    Serial.println("\n\t[2/5] Set configuration");
-    if (!sensor.setConfig(this->bsecConfig))
+    if (!sensor.setConfig(bsecConfig))
     {
         checkStatus();
+        return;
     }
 
-    Serial.println("\n\t[3/5] Load state");
-    if (!this->loadState())
+    // Restore calibration state. Priority: RTC (passed in) → EEPROM → cold start.
+    if (savedState)
     {
-        checkStatus();
+        uint8_t mutable_state[BSEC_MAX_STATE_BLOB_SIZE];
+        memcpy(mutable_state, savedState, BSEC_MAX_STATE_BLOB_SIZE);
+        if (!sensor.setState(mutable_state))
+        {
+            Serial.println("[Sensor] RTC state rejected, trying EEPROM");
+            loadStateFromEeprom();
+        }
+        else
+        {
+            Serial.println("[Sensor] calibration restored from RTC");
+        }
+    }
+    else
+    {
+        if (loadStateFromEeprom())
+            Serial.println("[Sensor] calibration restored from EEPROM");
+        else
+            Serial.println("[Sensor] cold start — 48 h burn-in needed for accuracy=3");
     }
 
     bsecSensor sensorList[] = {
@@ -53,66 +69,93 @@ void BirdySensor::initialize()
         BSEC_OUTPUT_BREATH_VOC_EQUIVALENT,
         BSEC_OUTPUT_RAW_TEMPERATURE,
         BSEC_OUTPUT_RAW_PRESSURE,
-        BSEC_OUTPUT_RAW_HUMIDITY};
+        BSEC_OUTPUT_RAW_HUMIDITY,
+    };
 
-    Serial.println("\n\t[4/5] Update subscription");
-    if (!this->sensor.updateSubscription(sensorList, 6, BSEC_SAMPLE_RATE_LP))
+    if (!sensor.updateSubscription(sensorList, 6, BSEC_SAMPLE_RATE_ULP))
     {
         checkStatus();
+        return;
     }
 
-    Serial.println("\n\t[5/5] Attach callback");
-    this->sensor.attachCallback(this->internalCallback);
+    sensor.attachCallback(internalCallback);
+    Serial.println("[Sensor] ready");
 }
 
 void BirdySensor::update()
 {
-    if (!this->sensor.run())
-    {
+    if (!sensor.run())
         checkStatus();
-    }
+}
+
+bool BirdySensor::getState(uint8_t *dst)
+{
+    return sensor.getState(dst);
+}
+
+bool BirdySensor::saveStateToEeprom()
+{
+    uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
+    if (!sensor.getState(state))
+        return false;
+
+    EEPROM.write(0, BSEC_MAX_STATE_BLOB_SIZE);
+    for (uint8_t i = 0; i < BSEC_MAX_STATE_BLOB_SIZE; i++)
+        EEPROM.write(i + 1, state[i]);
+    EEPROM.commit();
+    Serial.println("[Sensor] state written to EEPROM");
+    return true;
+}
+
+bool BirdySensor::loadStateFromEeprom()
+{
+    if (EEPROM.read(0) != BSEC_MAX_STATE_BLOB_SIZE)
+        return false;
+
+    uint8_t state[BSEC_MAX_STATE_BLOB_SIZE];
+    for (uint8_t i = 0; i < BSEC_MAX_STATE_BLOB_SIZE; i++)
+        state[i] = EEPROM.read(i + 1);
+
+    return sensor.setState(state);
 }
 
 void BirdySensor::internalCallback(bme68xData data, bsecOutputs outputs, Bsec2 bsec)
 {
     if (!outputs.nOutputs || !instance)
-    {
         return;
-    }
 
-    BirdyData currentData;
+    BirdyData current = {};
 
-    Serial.println("\nData @ " + String((int)(outputs.output[0].time_stamp / INT64_C(1000000))));
+    Serial.printf("[Sensor] t=%lld ms\n", outputs.output[0].time_stamp / 1000000LL);
     for (uint8_t i = 0; i < outputs.nOutputs; i++)
     {
-        const bsecData output = outputs.output[i];
-        switch (output.sensor_id)
+        const bsecData &o = outputs.output[i];
+        switch (o.sensor_id)
         {
         case BSEC_OUTPUT_IAQ:
-            Serial.printf("\tIAQ: %.2f (Accuracy: %s)\n", output.signal, instance->getAccuracyString(output.accuracy));
-            currentData.iaq = output.signal;
-            currentData.accuracy = output.accuracy;
-            instance->persistState(output);
+            Serial.printf("  IAQ: %.1f (%s)\n", o.signal, instance->accuracyLabel(o.accuracy));
+            current.iaq      = o.signal;
+            current.accuracy = o.accuracy;
             break;
         case BSEC_OUTPUT_CO2_EQUIVALENT:
-            Serial.printf("\tCO2 equivalent: %.2f ppm\n", output.signal);
-            currentData.co2 = output.signal;
+            Serial.printf("  eCO2: %.0f ppm\n", o.signal);
+            current.co2 = o.signal;
             break;
         case BSEC_OUTPUT_BREATH_VOC_EQUIVALENT:
-            Serial.printf("\tVOC equivalent: %.2f ppm\n", output.signal);
-            currentData.voc = output.signal;
+            Serial.printf("  bVOC: %.2f ppm\n", o.signal);
+            current.voc = o.signal;
             break;
         case BSEC_OUTPUT_RAW_TEMPERATURE:
-            Serial.printf("\tTemperature: %.2f °C\n", output.signal);
-            currentData.temperature = output.signal;
+            Serial.printf("  Temp: %.1f C\n", o.signal);
+            current.temperature = o.signal;
             break;
         case BSEC_OUTPUT_RAW_PRESSURE:
-            Serial.printf("\tPressure: %.2f hPa\n", output.signal);
-            currentData.pressure = output.signal;
+            Serial.printf("  Pres: %.1f hPa\n", o.signal);
+            current.pressure = o.signal;
             break;
         case BSEC_OUTPUT_RAW_HUMIDITY:
-            Serial.printf("\tHumidity: %.2f %%\n", output.signal);
-            currentData.humidity = output.signal;
+            Serial.printf("  Hum:  %.1f %%\n", o.signal);
+            current.humidity = o.signal;
             break;
         default:
             break;
@@ -120,99 +163,25 @@ void BirdySensor::internalCallback(bme68xData data, bsecOutputs outputs, Bsec2 b
     }
 
     if (instance->userCallback)
-    {
-        instance->userCallback(currentData);
-    }
-}
-
-const char *BirdySensor::getAccuracyString(uint8_t accuracy)
-{
-    switch (accuracy)
-    {
-    case BSEC_ACCURACY_UNRELIABLE:
-        return "Unreliable";
-    case BSEC_ACCURACY_LOW:
-        return "Low";
-    case BSEC_ACCURACY_MEDIUM:
-        return "Medium";
-    case BSEC_ACCURACY_HIGH:
-        return "High";
-    default:
-        return "Unknown";
-    }
+        instance->userCallback(current);
 }
 
 void BirdySensor::checkStatus()
 {
-    if (this->sensor.status < BSEC_OK)
-    {
-        Serial.println("BSEC error code : " + String(this->sensor.status));
-    }
-    else if (this->sensor.status > BSEC_OK)
-    {
-        Serial.println("BSEC warning code : " + String(this->sensor.status));
-    }
-
-    if (this->sensor.sensor.status < BME68X_OK)
-    {
-        Serial.println("BME68X error code : " + String(this->sensor.sensor.status));
-    }
-    else if (this->sensor.sensor.status > BME68X_OK)
-    {
-        Serial.println("BME68X warning code : " + String(this->sensor.sensor.status));
-    }
+    if (sensor.status != BSEC_OK)
+        Serial.printf("[Sensor] BSEC status: %d\n", sensor.status);
+    if (sensor.sensor.status != BME68X_OK)
+        Serial.printf("[Sensor] BME68x status: %d\n", sensor.sensor.status);
 }
 
-bool BirdySensor::loadState()
+const char *BirdySensor::accuracyLabel(uint8_t accuracy)
 {
-    uint8_t size = EEPROM.read(0);
-    Serial.println("EEPROM Size: [" + String(size) + "|" + String(BSEC_MAX_STATE_BLOB_SIZE) + "]");
-    if (size != BSEC_MAX_STATE_BLOB_SIZE)
+    switch (accuracy)
     {
-        Serial.println("No state available");
-        return false;
-    }
-
-    Serial.print("State file: ");
-    for (uint8_t i = 0; i < BSEC_MAX_STATE_BLOB_SIZE; i++)
-    {
-        bsecState[i] = EEPROM.read(i + 1);
-        Serial.print(String(bsecState[i], HEX) + ", ");
-    }
-    Serial.println();
-
-    return this->sensor.setState(this->bsecState);
-}
-
-bool BirdySensor::saveState()
-{
-    if (!this->sensor.getState(this->bsecState))
-        return false;
-
-    Serial.println("Writing state to EEPROM");
-    Serial.print("State file: ");
-
-    for (uint8_t i = 0; i < BSEC_MAX_STATE_BLOB_SIZE; i++)
-    {
-        EEPROM.write(i + 1, this->bsecState[i]);
-        Serial.print(String(this->bsecState[i], HEX) + ", ");
-    }
-    Serial.println();
-
-    EEPROM.write(0, BSEC_MAX_STATE_BLOB_SIZE);
-    EEPROM.commit();
-    return true;
-}
-
-void BirdySensor::persistState(bsecData output)
-{
-    if (output.accuracy > this->lastAccuracy || (millis() - this->lastStateSave >= STATE_SAVE_INTERVAL))
-    {
-        if (saveState())
-        {
-            Serial.println("State saved due to " + String(output.accuracy > this->lastAccuracy ? "improved accuracy" : "time interval"));
-            this->lastAccuracy = output.accuracy;
-            this->lastStateSave = millis();
-        }
+    case 0: return "stabilizing";
+    case 1: return "uncertain";
+    case 2: return "calibrating";
+    case 3: return "calibrated";
+    default: return "unknown";
     }
 }
