@@ -9,7 +9,17 @@ static const uint8_t bsecConfig[] = {
 #include "config/bme688/bme688_sel_33v_300s_4d/bsec_selectivity.txt"
 };
 
-BirdySensor *BirdySensor::instance = nullptr;
+BirdySensor *BirdySensor::instance         = nullptr;
+int64_t      BirdySensor::baseTimeOffsetMs = 0;
+
+// Custom millis() fed to BSEC via the documented Bsec2::begin(..., millis) overload.
+// Adds the accumulated runtime from prior boots (persisted in RTC by main.cpp) so
+// BSEC sees a monotonically increasing timeline across deep-sleep wakes. The default
+// Arduino millis() restarts at 0 each wake, which freezes BSEC's accuracy at 0.
+unsigned long BirdySensor::bsecMillisCallback()
+{
+    return (unsigned long)(baseTimeOffsetMs + (int64_t)millis());
+}
 
 BirdySensor::BirdySensor(SensorCallback userCallback)
     : sensor(), userCallback(userCallback)
@@ -17,9 +27,12 @@ BirdySensor::BirdySensor(SensorCallback userCallback)
     instance = this;
 }
 
-void BirdySensor::initialize(const uint8_t *savedState)
+void BirdySensor::initialize(const uint8_t *savedState, int64_t timeOffsetMs)
 {
     Serial.println("[Sensor] init");
+
+    // Must be set before begin(), since begin() may invoke the millis callback.
+    baseTimeOffsetMs = timeOffsetMs;
 
     Wire.beginTransmission(BME68X_I2C_ADDR_HIGH);
     if (Wire.endTransmission() != 0)
@@ -28,7 +41,14 @@ void BirdySensor::initialize(const uint8_t *savedState)
         return;
     }
 
-    if (!sensor.begin(BME68X_I2C_ADDR_HIGH, Wire))
+    commIntf.i2c.wireobj = &Wire;
+    commIntf.i2c.i2cAddr = BME68X_I2C_ADDR_HIGH;
+
+    // Low-level begin() overload — the only one that accepts a custom millis().
+    // The Arduino convenience overload (i2cAddr, Wire, ...) hardwires the standard
+    // millis(), which breaks calibration across deep-sleep wakes.
+    if (!sensor.begin(BME68X_I2C_INTF, bme68xI2cRead, bme68xI2cWrite,
+                      bme68xDelayUs, &commIntf, bsecMillisCallback))
     {
         checkStatus();
         return;

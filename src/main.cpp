@@ -20,7 +20,8 @@
 
 #define EEPROM_SAVE_EVERY_N_BOOTS 72  // EEPROM backup roughly every 6 hours
 
-#define RTC_MAGIC 0xBEEF5EC2u
+// Magic changed when struct layout changed (added totalElapsedMs) — forces cold start.
+#define RTC_MAGIC 0xBEEF5EC4u
 
 struct RtcData {
     uint32_t magic;
@@ -28,8 +29,9 @@ struct RtcData {
     uint8_t  bootCount;          // wraps at 255; used for EEPROM backup cadence
     uint8_t  lastSavedAccuracy;  // highest accuracy level persisted to EEPROM
     uint8_t  pad;
+    uint64_t totalElapsedMs;     // accumulated uptime for BSEC timestamp continuity across sleeps
     uint8_t  bsecState[BSEC_MAX_STATE_BLOB_SIZE]; // 238 bytes
-    uint8_t  pad2[2];            // keep struct size a multiple of 4: 4+4+238+2 = 248
+    uint8_t  pad2[2];            // total: 4+4+8+238+2 = 256 (multiple of 4 and 8)
 } __attribute__((aligned(4)));
 
 static RtcData rtcData;
@@ -90,8 +92,10 @@ void setup()
     // ULP 300s mode. State blob from a previous LP run is incompatible — if upgrading
     // from LP firmware, clear EEPROM and omit RTC magic so this cold-starts cleanly.
     bool hasState = rtcValid;
-    Serial.printf("[Boot] saved state: %s\n", hasState ? "yes (RTC)" : "no (cold start)");
-    birdySensor.initialize(hasState ? rtcData.bsecState : nullptr);
+    Serial.printf("[Boot] saved state: %s  elapsed: %llu ms\n",
+                  hasState ? "yes (RTC)" : "no (cold start)", rtcData.totalElapsedMs);
+    birdySensor.initialize(hasState ? rtcData.bsecState : nullptr,
+                           (int64_t)rtcData.totalElapsedMs);
 
 #ifdef WIFI_ENABLED
     Serial.println("[Boot] WiFi init");
@@ -143,7 +147,6 @@ void loop()
 #endif
 
     birdySensor.getState(rtcData.bsecState);
-    rtcData.magic = RTC_MAGIC;
     rtcData.bootCount++;
 
     if (latestData.accuracy > rtcData.lastSavedAccuracy)
@@ -158,9 +161,14 @@ void loop()
         birdySensor.saveStateToEeprom();
     }
 
+sleep:
+    // Accumulate this wake's uptime + the upcoming sleep. Next boot passes the
+    // total to BirdySensor::initialize, which feeds it to BSEC's millis callback
+    // so the timeline stays monotonic across deep-sleep wakes.
+    rtcData.totalElapsedMs += (uint64_t)millis() + (SLEEP_US / 1000ULL);
+    rtcData.magic = RTC_MAGIC;
     ESP.rtcUserMemoryWrite(0, (uint32_t *)&rtcData, sizeof(rtcData));
 
-sleep:
     Serial.printf("[Loop] done in %lu ms — sleeping %lu s\n",
                   millis(), SLEEP_US / 1000000UL);
     Serial.flush();
