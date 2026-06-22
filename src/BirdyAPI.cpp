@@ -39,14 +39,8 @@ bool BirdyAPI::persistData(const BirdyData &data)
     if (WiFi.status() != WL_CONNECTED)
         return false;
 
-    unsigned long now = millis();
-    if (now - lastUpdate < API_UPDATE_INTERVAL_MS)
-        return true;
-    lastUpdate = now;
-
     JsonDocument doc;
     doc["sensor_id"]  = birdyId;
-    doc["timestamp"]  = now;
     doc["iaq"]        = data.iaq;
     doc["co2"]        = data.co2;
     doc["voc"]        = data.voc;
@@ -65,8 +59,16 @@ bool BirdyAPI::persistData(const BirdyData &data)
 
     int code = http.POST(body);
     bool ok = (code == HTTP_CODE_OK || code == HTTP_CODE_CREATED);
-    if (!ok)
-        Serial.printf("[API] POST failed: %s\n", http.errorToString(code).c_str());
+    if (ok)
+    {
+        Serial.printf("[API] POST success: %d\n", code);
+    }
+    else
+    {
+        String body = http.getString();
+        Serial.printf("[API] POST failed: %d - %s\n", code, http.errorToString(code).c_str());
+        Serial.printf("[API] response: %s\n", body.c_str());
+    }
     return ok;
 }
 

@@ -152,7 +152,7 @@ doc/
 - USB driver: [Adafruit Feather HUZZAH setup guide](https://learn.adafruit.com/adafruit-feather-huzzah-esp8266/using-arduino-ide)
 
 ### WiFi / API (optional)
-Create `src/secrets.h`:
+Copy `src/secrets.h.example` to `src/secrets.h` and fill in your values:
 ```c
 #pragma once
 
@@ -160,9 +160,11 @@ Create `src/secrets.h`:
 #define WIFI_PASSWORD "<<YourWiFiPassword>>"
 
 #define BIRDY_ID  "<<YourBirdyUUID>>"
-#define API_KEY   "<<YourApiKey>>"
-#define API_URL   "<<YourApiUrl>>"
+#define API_KEY   "<<YourSupabaseServiceRoleKey>>"
+#define API_URL   "https://<<YourProjectRef>>.supabase.co/rest/v1/air_quality_data"
 ```
+
+The `API_KEY` must be the **service_role** key from your Supabase project so the device can insert readings while RLS is enabled.
 
 ### Build & Flash
 ```sh

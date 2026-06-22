@@ -8,7 +8,6 @@
 #include "BirdyData.h"
 
 #define WIFI_CONNECT_TIMEOUT_MS 10000
-#define API_UPDATE_INTERVAL_MS  (60 * 1000)
 
 class BirdyAPI
 {
@@ -33,7 +32,6 @@ private:
     const char *birdyId;
     HTTPClient      http;
     WiFiClientSecure client;
-    unsigned long lastUpdate = 0;
 };
 
 #endif // WIFI_ENABLED
