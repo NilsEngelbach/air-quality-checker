@@ -122,7 +122,7 @@ void loop()
     {
         if (millis() > MEASUREMENT_TIMEOUT_MS)
         {
-            Serial.printf("[Loop] timeout — no sample in %lu ms, sleeping anyway\n", millis());
+            Serial.printf("[Loop] SENSOR TIMEOUT — no sample in %lu ms, sleeping without upload\n", millis());
             goto sleep;
         }
         if (millis() - lastHeartbeat >= 5000)
@@ -143,6 +143,7 @@ void loop()
         rtcData.lastBand = birdyServo.setIaq(latestData.iaq);
 
 #ifdef WIFI_ENABLED
+    Serial.printf("[Loop] uploading accuracy=%d iaq=%.1f\n", latestData.accuracy, latestData.iaq);
     birdyAPI.persistData(latestData);
 #endif
 

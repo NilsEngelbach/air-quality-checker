@@ -21,14 +21,18 @@ bool BirdyAPI::initialize()
     {
         if (millis() - start > WIFI_CONNECT_TIMEOUT_MS)
         {
-            Serial.println("[API] WiFi connect timeout — offline mode");
+            unsigned long elapsed = millis() - start;
+            Serial.printf("[API] WiFi connect timeout after %lu ms, status=%d\n",
+                          elapsed, (int)WiFi.status());
             WiFi.mode(WIFI_OFF);
             return false;
         }
         delay(500);
         Serial.print(".");
     }
-    Serial.printf("\n[API] connected: %s\n", WiFi.localIP().toString().c_str());
+    unsigned long elapsed = millis() - start;
+    Serial.printf("\n[API] connected in %lu ms, ip=%s\n",
+                  elapsed, WiFi.localIP().toString().c_str());
     client.setInsecure();
     http.begin(client, apiUrl);
     return true;
@@ -52,24 +56,42 @@ bool BirdyAPI::persistData(const BirdyData &data)
     String body;
     serializeJson(doc, body);
 
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("apikey", apiKey);
-    http.addHeader("Authorization", "Bearer " + String(apiKey));
-    http.addHeader("Prefer", "return=minimal");
+    // Supabase response can occasionally take several seconds; default timeout is too short.
+    http.setTimeout(20000);
 
-    int code = http.POST(body);
-    bool ok = (code == HTTP_CODE_OK || code == HTTP_CODE_CREATED);
-    if (ok)
+    const int maxAttempts = 3;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++)
     {
-        Serial.printf("[API] POST success: %d\n", code);
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("apikey", apiKey);
+        http.addHeader("Authorization", "Bearer " + String(apiKey));
+        http.addHeader("Prefer", "return=minimal");
+
+        unsigned long postStart = millis();
+        int code = http.POST(body);
+        unsigned long postElapsed = millis() - postStart;
+        bool ok = (code == HTTP_CODE_OK || code == HTTP_CODE_CREATED);
+        if (ok)
+        {
+            Serial.printf("[API] POST success: %d in %lu ms (attempt %d/%d)\n",
+                          code, postElapsed, attempt, maxAttempts);
+            return true;
+        }
+
+        String response = http.getString();
+        Serial.printf("[API] POST failed: %d - %s (%lu ms) attempt %d/%d\n",
+                      code, http.errorToString(code).c_str(), postElapsed,
+                      attempt, maxAttempts);
+        Serial.printf("[API] response: %s\n", response.c_str());
+
+        if (attempt < maxAttempts)
+        {
+            // Reset the connection before retrying in case the TLS stream is stuck.
+            http.end();
+            http.begin(client, apiUrl);
+        }
     }
-    else
-    {
-        String body = http.getString();
-        Serial.printf("[API] POST failed: %d - %s\n", code, http.errorToString(code).c_str());
-        Serial.printf("[API] response: %s\n", body.c_str());
-    }
-    return ok;
+    return false;
 }
 
 #endif // WIFI_ENABLED
