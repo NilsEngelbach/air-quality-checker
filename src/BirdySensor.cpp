@@ -34,15 +34,15 @@ void BirdySensor::initialize(const uint8_t *savedState, int64_t timeOffsetMs)
     // Must be set before begin(), since begin() may invoke the millis callback.
     baseTimeOffsetMs = timeOffsetMs;
 
-    Wire.beginTransmission(BME68X_I2C_ADDR_HIGH);
+    Wire.beginTransmission(BME68X_I2C_ADDR_LOW);
     if (Wire.endTransmission() != 0)
     {
-        Serial.println("[Sensor] ERROR: not found on I2C 0x77");
+        Serial.println("[Sensor] ERROR: not found on I2C 0x76");
         return;
     }
 
     commIntf.i2c.wireobj = &Wire;
-    commIntf.i2c.i2cAddr = BME68X_I2C_ADDR_HIGH;
+    commIntf.i2c.i2cAddr = BME68X_I2C_ADDR_LOW;
 
     // Low-level begin() overload — the only one that accepts a custom millis().
     // The Arduino convenience overload (i2cAddr, Wire, ...) hardwires the standard

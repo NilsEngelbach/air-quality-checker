@@ -1,21 +1,15 @@
 #include "BirdyAPI.h"
 
-#ifdef WIFI_ENABLED
-
-BirdyAPI::BirdyAPI(
-    const char *ssid,
-    const char *password,
-    const char *apiKey,
-    const char *apiUrl,
-    const char *birdyId)
-    : ssid(ssid), password(password), apiKey(apiKey),
-      apiUrl(apiUrl), birdyId(birdyId)
+bool BirdyAPI::initialize(const String &ssid, const String &password,
+                          const String &apiKey, const String &apiUrl,
+                          const String &birdyId)
 {
-}
+    this->apiKey  = apiKey;
+    this->apiUrl  = apiUrl;
+    this->birdyId = birdyId;
 
-bool BirdyAPI::initialize()
-{
-    WiFi.begin(ssid, password);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), password.c_str());
     unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED)
     {
@@ -24,7 +18,7 @@ bool BirdyAPI::initialize()
             unsigned long elapsed = millis() - start;
             Serial.printf("[API] WiFi connect timeout after %lu ms, status=%d\n",
                           elapsed, (int)WiFi.status());
-            WiFi.mode(WIFI_OFF);
+            end();
             return false;
         }
         delay(500);
@@ -35,26 +29,43 @@ bool BirdyAPI::initialize()
                   elapsed, WiFi.localIP().toString().c_str());
     client.setInsecure();
     http.begin(client, apiUrl);
+    httpBegun = true;
     return true;
 }
 
-bool BirdyAPI::persistData(const BirdyData &data)
+bool BirdyAPI::persistData(const BirdyData &data, float batteryVolts)
 {
-    if (WiFi.status() != WL_CONNECTED)
-        return false;
-
     JsonDocument doc;
-    doc["sensor_id"]  = birdyId;
-    doc["iaq"]        = data.iaq;
-    doc["co2"]        = data.co2;
-    doc["voc"]        = data.voc;
-    doc["temperature"]= data.temperature;
-    doc["pressure"]   = data.pressure;
-    doc["humidity"]   = data.humidity;
-    doc["accuracy"]   = data.accuracy;
+    doc["sensor_id"]   = birdyId;
+    doc["iaq"]         = data.iaq;
+    doc["co2"]         = data.co2;
+    doc["voc"]         = data.voc;
+    doc["temperature"] = data.temperature;
+    doc["pressure"]    = data.pressure;
+    doc["humidity"]    = data.humidity;
+    doc["accuracy"]    = data.accuracy;
+    if (batteryVolts >= 0.0f)
+        doc["battery"] = batteryVolts;
 
     String body;
     serializeJson(doc, body);
+    return post(body);
+}
+
+bool BirdyAPI::persistBatch(const String &jsonArray)
+{
+    if (jsonArray.length() == 0)
+    {
+        Serial.println("[API] batch empty — nothing to upload");
+        return true;
+    }
+    return post(jsonArray);
+}
+
+bool BirdyAPI::post(const String &body)
+{
+    if (WiFi.status() != WL_CONNECTED || !httpBegun)
+        return false;
 
     // Supabase response can occasionally take several seconds; default timeout is too short.
     http.setTimeout(20000);
@@ -64,7 +75,7 @@ bool BirdyAPI::persistData(const BirdyData &data)
     {
         http.addHeader("Content-Type", "application/json");
         http.addHeader("apikey", apiKey);
-        http.addHeader("Authorization", "Bearer " + String(apiKey));
+        http.addHeader("Authorization", "Bearer " + apiKey);
         http.addHeader("Prefer", "return=minimal");
 
         unsigned long postStart = millis();
@@ -73,8 +84,8 @@ bool BirdyAPI::persistData(const BirdyData &data)
         bool ok = (code == HTTP_CODE_OK || code == HTTP_CODE_CREATED);
         if (ok)
         {
-            Serial.printf("[API] POST success: %d in %lu ms (attempt %d/%d)\n",
-                          code, postElapsed, attempt, maxAttempts);
+            Serial.printf("[API] POST success: %d in %lu ms (attempt %d/%d, %u bytes)\n",
+                          code, postElapsed, attempt, maxAttempts, body.length());
             return true;
         }
 
@@ -94,4 +105,13 @@ bool BirdyAPI::persistData(const BirdyData &data)
     return false;
 }
 
-#endif // WIFI_ENABLED
+void BirdyAPI::end()
+{
+    if (httpBegun)
+    {
+        http.end();
+        httpBegun = false;
+    }
+    // Radio off. (Credentials live in /config.json, not in the WiFi driver.)
+    WiFi.mode(WIFI_OFF);
+}
